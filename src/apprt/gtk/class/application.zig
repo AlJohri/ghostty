@@ -556,6 +556,23 @@ pub const Application = extern struct {
                 "application is remote, exiting run loop after activation",
                 .{},
             );
+
+            // On a remote instance, activate() only queues an asynchronous
+            // D-Bus call. Flush the connection so that the call is sent
+            // before the process exits.
+            if (self.as(gio.Application).getDbusConnection()) |dbus| {
+                var flush_err: ?*glib.Error = null;
+                if (dbus.flushSync(null, &flush_err) == 0) {
+                    if (flush_err) |err| {
+                        defer err.free();
+                        log.warn(
+                            "error flushing D-Bus connection: {s}",
+                            .{err.f_message orelse "(unknown)"},
+                        );
+                    }
+                }
+            }
+
             return;
         }
 
